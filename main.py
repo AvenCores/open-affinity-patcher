@@ -8,6 +8,7 @@ import ctypes
 import os
 import shutil
 import sys
+import webbrowser
 
 VERSION = "1.0.0"
 DEFAULT_DIR = r"C:\Program Files\Affinity\Affinity"
@@ -15,6 +16,9 @@ DEFAULT_DLL_NAME = "libaffinity.dll"
 PATCH_OFFSET = 0x0043E451
 ORIGINAL_BYTES = b"\x32\xC0"
 PATCHED_BYTES = b"\xB0\x01"
+TELEGRAM_URL = "t.me/avencoresyt"
+YOUTUBE_URL = "youtube.com/@avencores"
+GITHUB_URL = "https://github.com/AvenCores/open-affinity-patcher"
 
 CSI = "\x1b["
 COLOR_RESET = CSI + "0m"
@@ -70,6 +74,14 @@ def print_banner():
         + color(VERSION, COLOR_GREEN, COLOR_BOLD)
     )
     print(color("  Patch libaffinity.dll with one click or a custom path.", COLOR_CYAN))
+    print(
+        color("  Telegram Channel: ", COLOR_YELLOW)
+        + color(TELEGRAM_URL, COLOR_GREEN)
+    )
+    print(
+        color("  YouTube Channel:  ", COLOR_YELLOW)
+        + color(YOUTUBE_URL, COLOR_GREEN)
+    )
     print(color("  ============================================================", COLOR_CYAN, COLOR_BOLD))
     print()
 
@@ -276,6 +288,7 @@ def run_menu():
             print(color("  1. Patch default libaffinity.dll (folder not found)", COLOR_YELLOW))
 
         print(color("  2. Patch a custom file or folder", COLOR_CYAN))
+        print(color("  3. Open GitHub repository", COLOR_YELLOW))
         print(color("  0. Exit", COLOR_RED))
 
         choice = input(color("\n  > ", COLOR_CYAN, COLOR_BOLD)).strip()
@@ -301,6 +314,13 @@ def run_menu():
             print()
             if target_path:
                 patch_dll(target_path)
+            print()
+            pause()
+            continue
+
+        if choice == "3":
+            webbrowser.open(GITHUB_URL)
+            print(f"  [+] Opening: {color(GITHUB_URL, COLOR_CYAN)}")
             print()
             pause()
             continue
