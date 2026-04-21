@@ -175,6 +175,9 @@ def print_default_target_info():
         status = color("folder not found", COLOR_RED)
 
     print(f"  [*] Status: {status}")
+    if default_target_exists():
+        patch_status, current_bytes = get_patch_status(default_target)
+        print(f"  [*] Patch:  {format_patch_status_text(patch_status, current_bytes)}")
     print(f"  [i] Tip: you can also launch this program with a target path:")
     print(f"      {color(get_launch_example(), COLOR_YELLOW)}")
     print("  [i] You can pass either the DLL itself or a folder containing it.")
@@ -187,20 +190,7 @@ def print_target_info(filepath):
     if os.path.exists(filepath):
         print(f"  [*] Size:   {color(f'{os.path.getsize(filepath):,} bytes', COLOR_GREEN)}")
         patch_status, current_bytes = get_patch_status(filepath)
-        if patch_status == "patched":
-            status_text = color("already patched", COLOR_YELLOW)
-        elif patch_status == "original":
-            status_text = color("not patched", COLOR_GREEN)
-        elif patch_status == "too_small":
-            status_text = color("file is too small", COLOR_RED)
-        elif patch_status == "unreadable":
-            status_text = color("cannot read patch bytes", COLOR_RED)
-        else:
-            status_text = color(
-                f"unexpected bytes: {current_bytes.hex().upper()}",
-                COLOR_RED,
-            )
-        print(f"  [*] Patch:  {status_text}")
+        print(f"  [*] Patch:  {format_patch_status_text(patch_status, current_bytes)}")
     backup_path = filepath + ".bak"
     if os.path.exists(backup_path):
         print(f"  [*] Backup: {color(backup_path, COLOR_GREEN)}")
@@ -228,6 +218,18 @@ def get_patch_status(filepath):
     if current_bytes == ORIGINAL_BYTES:
         return "original", current_bytes
     return "unexpected", current_bytes
+
+
+def format_patch_status_text(patch_status, current_bytes):
+    if patch_status == "patched":
+        return color("already patched", COLOR_YELLOW)
+    if patch_status == "original":
+        return color("not patched", COLOR_GREEN)
+    if patch_status == "too_small":
+        return color("file is too small", COLOR_RED)
+    if patch_status == "unreadable":
+        return color("cannot read patch bytes", COLOR_RED)
+    return color(f"unexpected bytes: {current_bytes.hex().upper()}", COLOR_RED)
 
 
 def patch_dll(filepath):
