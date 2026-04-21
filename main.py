@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Canva Affinity 3.2.0.4351 Standalone Patcher
-Автономный патчер для libaffinity.dll
-Не требует оригинального патчера — все данные встроены в скрипт.
+Canva Affinity Universal Patcher v3
+Умный патчер, который сам находит проверку лицензии в libaffinity.dll
+Не требует оригинальный патчер.
+
+Логика: ищет функцию с эпилогом "add rsp, 0x20; pop rdi; ret; xor al, al"
+и меняет jne на jmp перед вызовом проверки.
 
 Использование:
-    python patcher.py libaffinity.dll
-    python patcher.py "C:\Program Files\Canva\libaffinity.dll"
-    python patcher.py                          # ищет libaffinity.dll рядом
-
-Создаёт бэкап: libaffinity.dll.backup
+    python smart_patcher.py libaffinity.dll
+    python smart_patcher.py "C:\Program Files\Canva\libaffinity.dll"
 """
 
 import sys
@@ -17,168 +17,257 @@ import os
 import shutil
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ВСТРОЕННЫЕ ДАННЫЕ ПАТЧА (извлечены из dUP2 патчера Canva Affinity 3.2.0.4351)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# Паттерн поиска (34 bytes) — оригинальный код проверки лицензии в libaffinity.dll
-# Это x64 код, который вызывает функцию проверки лицензии.
-# Если условие jne не срабатывает — выполняется call [rax] (проверка лицензии).
-SEARCH_PATTERN = bytes.fromhex(
-    "750f"              # jne     +15          ; прыжок если НЕ равно
-    "48000000"          # add     [rax], al    ; padding
-    "ba01000000"        # mov     edx, 1       ; аргумент
-    "48000000"          # add     [rax], al    ; padding
-    "ff10"              # call    [rax]        ; ← ВЫЗОВ ПРОВЕРКИ ЛИЦЕНЗИИ
-    "400fb6c7"          # movzx   eax, dil     ; получение результата
-    "488b5c2438"        # mov     rbx, [rsp+0x38]
-    "4883c420"          # add     rsp, 0x20
-    "5f"                # pop     rdi
-    "c3"                # ret
-    "32c0"              # xor     al, al       ; return false
-)
-
-# Паттерн замены (34 bytes) — код, который заменяет проверку лицензии.
-# После замены функция проверки всегда возвращает успех.
-REPLACE_PATTERN = bytes.fromhex(
-    "0adeedfa"          # or      bl, dh
-    "00ccddf7"          # add     ah, cl
-    "00175588"          # add     [rdi+rdx*4-0x78], dl
-    "00ccddf7"          # add     ah, cl
-    "00175588"          # add     [rdi+rdx*4-0x78], dl
-    "00ccddf7"          # add     ah, cl
-    "00175588"          # add     [rdi+rdx*4-0x78], dl
-    "00ccddf7"          # add     ah, cl
-    "00175588"          # add     [rdi+rdx*4-0x78], dl
-    "00"                # add     [rax], al
-)
-
-# Offset в файле libaffinity.dll, где находится паттерн (RVA 0x100831)
-PATCH_OFFSET = 0x100831
-
-# Имя целевого файла
-TARGET_FILENAME = "libaffinity.dll"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# ЛОГИКА ПАТЧЕНИЯ
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def create_backup(filepath: str) -> str:
-    """Создаёт бэкап файла."""
     backup_path = filepath + ".backup"
     counter = 1
-
-    # Если бэкап уже есть — создаём с номером
     base_backup = backup_path
     while os.path.exists(backup_path):
         backup_path = f"{base_backup}.{counter}"
         counter += 1
-
     shutil.copy2(filepath, backup_path)
     print(f"  [+] Бэкап создан: {backup_path}")
     return backup_path
 
 
-def verify_pattern(file_data: bytearray, offset: int, pattern: bytes) -> bool:
-    """Проверяет, совпадает ли паттерн по указанному offset."""
-    if offset + len(pattern) > len(file_data):
-        print(f"  [!] Offset 0x{offset:x} вне диапазона файла (размер: {len(file_data)})")
-        return False
-
-    actual = file_data[offset:offset + len(pattern)]
-    if actual != pattern:
-        print(f"  [!] Паттерн НЕ совпадает на offset 0x{offset:x}")
-        print(f"      Ожидалось: {pattern.hex()}")
-        print(f"      Найдено:   {actual.hex()}")
-        return False
-
-    print(f"  [+] Паттерн подтверждён на offset 0x{offset:x}")
-    return True
-
-
-def apply_patch(filepath: str) -> bool:
-    """Применяет патч к файлу."""
-    print(f"\n[*] Обработка: {filepath}")
-
-    # Читаем файл
-    with open(filepath, 'rb') as f:
-        file_data = bytearray(f.read())
-
-    print(f"  [+] Размер файла: {len(file_data)} bytes")
-
-    # Проверяем паттерн по известному offset
-    if verify_pattern(file_data, PATCH_OFFSET, SEARCH_PATTERN):
-        offset = PATCH_OFFSET
-    else:
-        # Пробуем найти паттерн по всему файлу
-        print(f"  [i] Поиск паттерна по всему файлу...")
-        pos = file_data.find(SEARCH_PATTERN)
+def find_function_epilog(data: bytearray, start: int = 0):
+    """Ищет эпилог функции: add rsp, 0x20; pop rdi; ret"""
+    epilog = bytes.fromhex("4883c4205fc3")
+    pos = start
+    while True:
+        pos = data.find(epilog, pos)
         if pos == -1:
-            print(f"  [!] Паттерн не найден. Возможные причины:")
-            print(f"      • Файл уже пропатчен")
-            print(f"      • Неверная версия libaffinity.dll (ожидается 3.2.0.4351)")
-            print(f"      • Файл повреждён или модифицирован")
-            return False
-        print(f"  [+] Паттерн найден на offset 0x{pos:x}")
-        offset = pos
+            break
+        yield pos
+        pos += 1
 
-    # Создаём бэкап
-    create_backup(filepath)
 
-    # Применяем замену
-    file_data[offset:offset + len(REPLACE_PATTERN)] = REPLACE_PATTERN
+def find_jne_before_offset(data: bytearray, offset: int, max_back: int = 80):
+    """Ищет jne (75 xx) в пределах max_back байт до offset."""
+    start = max(0, offset - max_back)
+    for i in range(start, offset - 1):
+        if data[i] == 0x75:
+            # Следующий байт = relative offset
+            rel = data[i + 1]
+            jump_target = i + 2 + rel if rel < 0x80 else i + 2 - (0x100 - rel)
+            # Проверяем, что jne прыгает вперёд (внутри функции)
+            if i + 2 <= jump_target <= offset:
+                return i
+    return -1
 
-    # Записываем изменения
-    with open(filepath, 'wb') as f:
-        f.write(file_data)
 
-    print(f"  [+] Патч успешно применён!")
-    print(f"      Offset: 0x{offset:x}")
-    print(f"      Заменено: {len(REPLACE_PATTERN)} bytes")
-    print(f"      Оригинал: {SEARCH_PATTERN.hex()}")
-    print(f"      Замена:   {REPLACE_PATTERN.hex()}")
+def has_call_instruction(data: bytearray, start: int, end: int):
+    """Проверяет наличие call в диапазоне [start, end]."""
+    for i in range(start, end - 1):
+        # call [rax] = ff 10
+        # call [rip+...] = ff 15
+        # call rel32 = e8 xx xx xx xx
+        if data[i] == 0xff and data[i+1] in (0x10, 0x15):
+            return True
+        if data[i] == 0xe8 and i + 5 <= end:
+            return True
+    return False
+
+
+def find_license_checks(data: bytearray):
+    """Находит все потенциальные проверки лицензии в файле."""
+    checks = []
+
+    # Способ 1: ищем полный оригинальный паттерн из dUP2
+    original_pattern = bytes.fromhex("750f48000000ba0100000048000000ff10400fb6c7488b5c24384883c4205fc332c0")
+    pos = data.find(original_pattern)
+    if pos != -1:
+        checks.append({
+            'offset': pos,
+            'type': 'original_pattern',
+            'confidence': 100,
+            'context': data[max(0, pos-10):pos+50]
+        })
+        return checks
+
+    # Способ 2: ищем эпилог функции с xor al, al после ret
+    epilog_with_xor = bytes.fromhex("4883c4205fc332c0")
+    pos = 0
+    while True:
+        pos = data.find(epilog_with_xor, pos)
+        if pos == -1:
+            break
+        # Идём назад и ищем jne
+        jne_pos = find_jne_before_offset(data, pos, 100)
+        if jne_pos != -1:
+            # Проверяем, что между jne и эпилогом есть call
+            if has_call_instruction(data, jne_pos, pos):
+                checks.append({
+                    'offset': jne_pos,
+                    'type': 'epilog_xor',
+                    'confidence': 90,
+                    'context': data[max(0, jne_pos-10):pos+10]
+                })
+        pos += 1
+
+    # Способ 3: ищем эпилог без xor, но с int3 padding
+    epilog_basic = bytes.fromhex("4883c4205fc3")
+    pos = 0
+    while True:
+        pos = data.find(epilog_basic, pos)
+        if pos == -1:
+            break
+        # Проверяем, что после ret идёт int3 (cc) или nop (90) — признак конца функции
+        after_ret = pos + 6
+        if after_ret < len(data) and data[after_ret] in (0xcc, 0x90):
+            jne_pos = find_jne_before_offset(data, pos, 100)
+            if jne_pos != -1:
+                if has_call_instruction(data, jne_pos, pos):
+                    # Проверяем, что это ещё не добавлено
+                    already_found = any(c['offset'] == jne_pos for c in checks)
+                    if not already_found:
+                        checks.append({
+                            'offset': jne_pos,
+                            'type': 'epilog_basic',
+                            'confidence': 70,
+                            'context': data[max(0, jne_pos-10):pos+10]
+                        })
+        pos += 1
+
+    # Способ 4: ищем movzx eax, dil (40 0f b6 c7) — редкая инструкция, характерная для проверки
+    movzx_pattern = bytes.fromhex("400fb6c7")
+    pos = 0
+    while True:
+        pos = data.find(movzx_pattern, pos)
+        if pos == -1:
+            break
+        # Идём назад и ищем jne и call
+        jne_pos = find_jne_before_offset(data, pos, 80)
+        if jne_pos != -1:
+            if has_call_instruction(data, jne_pos, pos):
+                already_found = any(c['offset'] == jne_pos for c in checks)
+                if not already_found:
+                    checks.append({
+                        'offset': jne_pos,
+                        'type': 'movzx',
+                        'confidence': 85,
+                        'context': data[max(0, jne_pos-10):pos+20]
+                    })
+        pos += 1
+
+    return checks
+
+
+def apply_patch_at(data: bytearray, offset: int) -> bool:
+    """Применяет патч: меняет jne (75) на jmp (eb)."""
+    if data[offset] != 0x75:
+        print(f"  [!] На offset 0x{offset:x} не jne (ожидалось 75, найдено {data[offset]:02x})")
+        return False
+
+    old_byte = data[offset]
+    data[offset] = 0xeb  # jmp
+    print(f"  [+] Патч применён: 0x{offset:x}: {old_byte:02x} (jne) → eb (jmp)")
     return True
 
 
 def main():
     print("=" * 70)
-    print("Canva Affinity 3.2.0.4351 Standalone Patcher")
-    print("Автономный патчер для libaffinity.dll")
+    print("Canva Affinity Universal Patcher v3")
+    print("Умный поиск и патчинг проверки лицензии")
     print("=" * 70)
 
-    # Определяем целевой файл
-    if len(sys.argv) >= 2:
-        target = sys.argv[1]
-    else:
-        target = TARGET_FILENAME
+    if len(sys.argv) < 2:
+        target = "libaffinity.dll"
         if not os.path.exists(target):
-            print(f"\n[!] Файл {TARGET_FILENAME} не найден в текущей директории.")
-            print(f"    Использование: python {sys.argv[0]} <путь_к_libaffinity.dll>")
+            print(f"\n[!] Укажите путь к libaffinity.dll")
+            print(f"    Использование: python {sys.argv[0]} <путь_к_dll>")
             sys.exit(1)
+    else:
+        target = sys.argv[1]
 
-    # Проверяем существование файла
     if not os.path.exists(target):
         print(f"\n[!] Файл не найден: {target}")
         sys.exit(1)
 
-    # Проверяем, что это PE файл
     with open(target, 'rb') as f:
-        sig = f.read(2)
+        data = bytearray(f.read())
 
-    if sig != b'MZ':
-        print(f"\n[!] Файл не является PE (DOS сигнатура: {sig})")
+    print(f"\n[*] Анализ: {target}")
+    print(f"  [+] Размер: {len(data)} bytes")
+
+    # Проверяем PE
+    if data[:2] != b'MZ':
+        print(f"  [!] Не PE файл")
         sys.exit(1)
 
-    # Применяем патч
-    success = apply_patch(target)
+    print(f"\n[*] Поиск проверок лицензии...")
+    checks = find_license_checks(data)
+
+    if not checks:
+        print(f"\n  [!] Проверки лицензии не найдены.")
+        print(f"      Возможные причины:")
+        print(f"      • Файл уже пропатчен")
+        print(f"      • Неверная версия libaffinity.dll")
+        print(f"      • Файл сильно отличается от ожидаемого")
+        sys.exit(1)
+
+    print(f"\n  [+] Найдено потенциальных проверок: {len(checks)}")
+
+    # Сортируем по уверенности
+    checks.sort(key=lambda x: x['confidence'], reverse=True)
+
+    for i, check in enumerate(checks):
+        print(f"\n  [{i+1}] Offset: 0x{check['offset']:x}")
+        print(f"      Тип: {check['type']}")
+        print(f"      Уверенность: {check['confidence']}%")
+        print(f"      Контекст: {check['context'].hex()}")
+
+    # Если только одна высокоуверенная проверка — патчим автоматически
+    high_confidence = [c for c in checks if c['confidence'] >= 80]
+
+    if len(high_confidence) == 1:
+        check = high_confidence[0]
+        print(f"\n[*] Автоматический патч (уверенность {check['confidence']}%)")
+        create_backup(target)
+        if apply_patch_at(data, check['offset']):
+            with open(target, 'wb') as f:
+                f.write(data)
+            print(f"\n[+] Успешно пропатчено!")
+        else:
+            print(f"\n[!] Ошибка применения патча")
+    elif len(high_confidence) > 1:
+        print(f"\n[!] Найдено несколько высокоуверенных проверок ({len(high_confidence)}).")
+        print(f"    Пожалуйста, выберите вручную:")
+        for i, check in enumerate(high_confidence):
+            print(f"      {i+1}. Offset 0x{check['offset']:x} ({check['type']}, {check['confidence']}%)")
+
+        try:
+            choice = int(input(f"\n    Введите номер (1-{len(high_confidence)}): ")) - 1
+            if 0 <= choice < len(high_confidence):
+                check = high_confidence[choice]
+                create_backup(target)
+                if apply_patch_at(data, check['offset']):
+                    with open(target, 'wb') as f:
+                        f.write(data)
+                    print(f"\n[+] Успешно пропатчено!")
+            else:
+                print(f"\n[!] Неверный выбор")
+        except (ValueError, EOFError):
+            print(f"\n[!] Отменено пользователем")
+    else:
+        print(f"\n[!] Нет высокоуверенных проверок. Найдено {len(checks)} с низкой уверенностью.")
+        print(f"    Это может быть рискованно. Показать все? (y/n)")
+        try:
+            answer = input("    > ").lower()
+            if answer == 'y':
+                for i, check in enumerate(checks):
+                    print(f"      {i+1}. Offset 0x{check['offset']:x} ({check['type']}, {check['confidence']}%)")
+                choice = int(input(f"\n    Введите номер (1-{len(checks)}): ")) - 1
+                if 0 <= choice < len(checks):
+                    check = checks[choice]
+                    create_backup(target)
+                    if apply_patch_at(data, check['offset']):
+                        with open(target, 'wb') as f:
+                            f.write(data)
+                        print(f"\n[+] Успешно пропатчено!")
+        except (ValueError, EOFError):
+            print(f"\n[!] Отменено")
 
     print("\n" + "=" * 70)
-    if success:
-        print("[+] Патчинг завершён успешно!")
-        print("[=] Оригинальный файл сохранён с расширением .backup")
-    else:
-        print("[!] Патчинг не удался.")
-    print("=" * 70)
 
 
 if __name__ == '__main__':
