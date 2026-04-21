@@ -186,6 +186,21 @@ def print_target_info(filepath):
     print(f"  [*] Target: {color(filepath, COLOR_CYAN)}")
     if os.path.exists(filepath):
         print(f"  [*] Size:   {color(f'{os.path.getsize(filepath):,} bytes', COLOR_GREEN)}")
+        patch_status, current_bytes = get_patch_status(filepath)
+        if patch_status == "patched":
+            status_text = color("already patched", COLOR_YELLOW)
+        elif patch_status == "original":
+            status_text = color("not patched", COLOR_GREEN)
+        elif patch_status == "too_small":
+            status_text = color("file is too small", COLOR_RED)
+        elif patch_status == "unreadable":
+            status_text = color("cannot read patch bytes", COLOR_RED)
+        else:
+            status_text = color(
+                f"unexpected bytes: {current_bytes.hex().upper()}",
+                COLOR_RED,
+            )
+        print(f"  [*] Patch:  {status_text}")
     backup_path = filepath + ".bak"
     if os.path.exists(backup_path):
         print(f"  [*] Backup: {color(backup_path, COLOR_GREEN)}")
@@ -196,6 +211,23 @@ def print_target_info(filepath):
 
 def pause():
     input("  Press Enter to return to menu...")
+
+
+def get_patch_status(filepath):
+    try:
+        with open(filepath, "rb") as file_obj:
+            file_obj.seek(PATCH_OFFSET)
+            current_bytes = file_obj.read(len(ORIGINAL_BYTES))
+    except Exception:
+        return "unreadable", b""
+
+    if len(current_bytes) < len(ORIGINAL_BYTES):
+        return "too_small", current_bytes
+    if current_bytes == PATCHED_BYTES:
+        return "patched", current_bytes
+    if current_bytes == ORIGINAL_BYTES:
+        return "original", current_bytes
+    return "unexpected", current_bytes
 
 
 def patch_dll(filepath):
@@ -210,6 +242,24 @@ def patch_dll(filepath):
         print(color(f"  [!] File not found: {target_path}", COLOR_RED))
         return False
 
+    patch_status, current_bytes = get_patch_status(target_path)
+    if patch_status == "patched":
+        print(color("  [i] File is already patched. Nothing to do.", COLOR_YELLOW))
+        print(f"  [i] Offset: 0x{PATCH_OFFSET:08X}")
+        print(f"  [i] Bytes:  {current_bytes.hex().upper()}")
+        return True
+    if patch_status == "too_small":
+        print(color("  [!] File is too small for this patch.", COLOR_RED))
+        return False
+    if patch_status == "unreadable":
+        print(color("  [!] Could not read patch bytes from file.", COLOR_RED))
+        return False
+    if patch_status == "unexpected":
+        print(color(f"  [!] Unexpected bytes at offset 0x{PATCH_OFFSET:08X}", COLOR_RED))
+        print(f"  [!] Expected: {ORIGINAL_BYTES.hex().upper()}")
+        print(f"  [!] Found:    {current_bytes.hex().upper()}")
+        return False
+
     try:
         with open(target_path, "rb") as file_obj:
             data = bytearray(file_obj.read())
@@ -221,17 +271,8 @@ def patch_dll(filepath):
         print(color(f"  [!] File is too small: {len(data)} bytes", COLOR_RED))
         return False
 
-    current_bytes = bytes(data[PATCH_OFFSET:PATCH_OFFSET + len(ORIGINAL_BYTES)])
-    if current_bytes == PATCHED_BYTES:
-        print(color("  [i] File appears to be already patched.", COLOR_YELLOW))
-        print(f"  [i] Offset: 0x{PATCH_OFFSET:08X}")
-        print(f"  [i] Bytes:  {PATCHED_BYTES.hex().upper()}")
-        return True
-
-    if current_bytes != ORIGINAL_BYTES:
-        print(color(f"  [!] Unexpected bytes at offset 0x{PATCH_OFFSET:08X}", COLOR_RED))
-        print(f"  [!] Expected: {ORIGINAL_BYTES.hex().upper()}")
-        print(f"  [!] Found:    {current_bytes.hex().upper()}")
+    if bytes(data[PATCH_OFFSET:PATCH_OFFSET + len(ORIGINAL_BYTES)]) != ORIGINAL_BYTES:
+        print(color("  [!] File contents changed during verification. Try again.", COLOR_RED))
         return False
 
     backup_path = target_path + ".bak"
