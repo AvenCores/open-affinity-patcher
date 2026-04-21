@@ -5,3 +5,4 @@ Open_Affinity_Patcher_Windows.spec
 __pycache__
 libaffinity.dll
 libaffinity.dll.BAK
+libaffinity.dll.BAK.bak
