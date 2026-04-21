@@ -125,6 +125,13 @@ python main.py "C:\Path\To\Affinity"
 - Скрипт использует только стандартную библиотеку Python
 - Используйте на свой риск при патчинге версий, отличающихся от `3.2.0.4351`
 
+## 🛠️ Сборка
+Требуется `pyinstaller`:
+```bash
+pip install -r requirements.txt
+Windows: pyinstaller --onefile --uac-admin --icon=icon.ico --name="Open_Affinity_Patcher_Windows" --noupx --clean --version-file=version.txt main.py
+```
+
 # 📜 Лицензия
 
 Проект распространяется под лицензией GPL-3.0. Полный текст лицензии содержится в файле [`LICENSE`](LICENSE).
