@@ -1,0 +1,1 @@
+Windows: pyinstaller --onefile --uac-admin --icon=icon.ico --name="Open_Affinity_Patcher_Windows" --noupx --clean --version-file=version.txt main.py

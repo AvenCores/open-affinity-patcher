@@ -1,0 +1,6 @@
+.env/
+dist/
+build/
+Open_Affinity_Patcher_Windows.spec
+__pycache__
+libaffinity.dll
