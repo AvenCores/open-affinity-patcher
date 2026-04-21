@@ -364,7 +364,6 @@ def patch_dll(filepath):
     version_info = get_affinity_version_info()
     print_target_info(target_path)
     print_affinity_version_info(version_info)
-    print()
 
     if not os.path.exists(target_path):
         print(color(f"  [!] File not found: {target_path}", COLOR_RED))
