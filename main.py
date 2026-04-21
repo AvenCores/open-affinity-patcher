@@ -16,6 +16,11 @@ DEFAULT_DLL_NAME = "libaffinity.dll"
 PATCH_OFFSET = 0x0043E451
 ORIGINAL_BYTES = b"\x32\xC0"
 PATCHED_BYTES = b"\xB0\x01"
+AFFINITY_REGISTRY_SUBKEY = (
+    r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+    r"\{D5B4183A-DE48-405A-A106-D3E48EBFE23F}"
+)
+SUPPORTED_AFFINITY_VERSION = "3.2.0.4351"
 TELEGRAM_URL = "t.me/avencoresyt"
 YOUTUBE_URL = "youtube.com/@avencores"
 GITHUB_URL = "https://github.com/AvenCores/open-affinity-patcher"
@@ -154,6 +159,99 @@ def default_target_exists():
     return os.path.isfile(get_default_target_path())
 
 
+def parse_version_parts(version_text):
+    if not version_text:
+        return None
+
+    parts = version_text.strip().split(".")
+    if not parts or any(not part.isdigit() for part in parts):
+        return None
+    return tuple(int(part) for part in parts)
+
+
+def compare_version_parts(left_version, right_version):
+    max_len = max(len(left_version), len(right_version))
+    left_padded = left_version + (0,) * (max_len - len(left_version))
+    right_padded = right_version + (0,) * (max_len - len(right_version))
+
+    if left_padded < right_padded:
+        return -1
+    if left_padded > right_padded:
+        return 1
+    return 0
+
+
+def get_installed_affinity_version():
+    if os.name != "nt":
+        return None, "unsupported_os"
+
+    try:
+        import winreg
+    except ImportError:
+        return None, "registry_unavailable"
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, AFFINITY_REGISTRY_SUBKEY) as key:
+            display_version, _ = winreg.QueryValueEx(key, "DisplayVersion")
+    except OSError:
+        return None, "not_found"
+
+    if not isinstance(display_version, str):
+        return None, "invalid_value"
+
+    display_version = display_version.strip()
+    if not display_version:
+        return None, "invalid_value"
+
+    return display_version, None
+
+
+def get_affinity_version_info():
+    installed_version, error_code = get_installed_affinity_version()
+    if not installed_version:
+        return {
+            "installed_version": None,
+            "status": error_code,
+            "warning": "Could not read Affinity DisplayVersion from the system registry. Patcher may work incorrectly.",
+        }
+
+    installed_parts = parse_version_parts(installed_version)
+    supported_parts = parse_version_parts(SUPPORTED_AFFINITY_VERSION)
+    if installed_parts is None or supported_parts is None:
+        return {
+            "installed_version": installed_version,
+            "status": "parse_error",
+            "warning": "Could not parse the installed Affinity version. Patcher may work incorrectly.",
+        }
+
+    comparison = compare_version_parts(installed_parts, supported_parts)
+    if comparison < 0:
+        return {
+            "installed_version": installed_version,
+            "status": "below_minimum",
+            "warning": (
+                f"Installed version is below {SUPPORTED_AFFINITY_VERSION}. "
+                "Patcher may work incorrectly."
+            ),
+        }
+
+    if comparison > 0:
+        return {
+            "installed_version": installed_version,
+            "status": "different",
+            "warning": (
+                f"Installed version differs from tested {SUPPORTED_AFFINITY_VERSION}. "
+                "Patcher may work incorrectly."
+            ),
+        }
+
+    return {
+        "installed_version": installed_version,
+        "status": "supported",
+        "warning": "",
+    }
+
+
 def get_launch_example():
     script_name = os.path.basename(sys.argv[0]) or "main.py"
     if getattr(sys, "frozen", False):
@@ -163,6 +261,7 @@ def get_launch_example():
 
 def print_default_target_info():
     default_target = get_default_target_path()
+    version_info = get_affinity_version_info()
 
     print(f"  [*] Default folder: {color(DEFAULT_DIR, COLOR_CYAN)}")
     print(f"  [*] Default target: {color(default_target, COLOR_CYAN)}")
@@ -178,6 +277,7 @@ def print_default_target_info():
     if default_target_exists():
         patch_status, current_bytes = get_patch_status(default_target)
         print(f"  [*] Patch:  {format_patch_status_text(patch_status, current_bytes)}")
+    print_affinity_version_info(version_info)
     print(f"  [i] Tip: you can also launch this program with a target path:")
     print(f"      {color(get_launch_example(), COLOR_YELLOW)}")
     print("  [i] You can pass either the DLL itself or a folder containing it.")
@@ -232,13 +332,39 @@ def format_patch_status_text(patch_status, current_bytes):
     return color(f"unexpected bytes: {current_bytes.hex().upper()}", COLOR_RED)
 
 
+def print_affinity_version_info(version_info=None):
+    if version_info is None:
+        version_info = get_affinity_version_info()
+
+    installed_version = version_info.get("installed_version")
+    status = version_info.get("status")
+    warning = version_info.get("warning", "")
+
+    if status == "supported":
+        version_text = color(installed_version, COLOR_GREEN)
+    elif installed_version:
+        version_text = color(installed_version, COLOR_YELLOW)
+    else:
+        version_text = color("not detected", COLOR_YELLOW)
+
+    print(f"  [*] Version: {version_text}")
+    print()
+
+    if warning:
+        warning_color = COLOR_RED if status == "below_minimum" else COLOR_YELLOW
+        print(color(f"  [!] Warning: {warning}", warning_color))
+
+
 def patch_dll(filepath):
     target_path = resolve_target_path(filepath)
     if not target_path:
         print(color("  [!] No target path was provided.", COLOR_RED))
         return False
 
+    version_info = get_affinity_version_info()
     print_target_info(target_path)
+    print_affinity_version_info(version_info)
+    print()
 
     if not os.path.exists(target_path):
         print(color(f"  [!] File not found: {target_path}", COLOR_RED))
