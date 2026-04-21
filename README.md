@@ -21,7 +21,7 @@
 [![GitHub pull requests](https://img.shields.io/github/issues-pr/AvenCores/open-affinity-patcher?style=for-the-badge)](https://github.com/AvenCores/open-affinity-patcher/pulls)
 [![GitHub issues](https://img.shields.io/github/issues/AvenCores/open-affinity-patcher?style=for-the-badge)](https://github.com/AvenCores/open-affinity-patcher/issues)
 
-Интерактивный патчер `libaffinity.dll` для Windows.
+Интерактивный патчер `libaffinity.dll` для Windows для отключения принудительной авторизации и офлайн работы.
 
 Утилита патчит `libaffinity.dll` по смещению `0x0043E451` и заменяет:
 
