@@ -29,7 +29,7 @@
 - `XOR AL, AL` -> `MOV AL, 1`
 - Эффект: пропатченная функция возвращает `1` вместо `0`
 
-<img alt="chrome_B80953pnCP" src="https://github.com/user-attachments/assets/b0366e44-5eda-4836-b698-8b6f55d0000e" />
+<img alt="chrome_XYRV97RfpA" src="https://github.com/user-attachments/assets/f6e8c5bb-e1a9-46a0-bd62-498f61f3f1aa" />
 
 ## ✨ Что делает патчер
 
