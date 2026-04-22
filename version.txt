@@ -15,12 +15,12 @@ VSVersionInfo(
         '040904B0',
         [StringStruct('CompanyName', 'avencores'),
          StringStruct('FileDescription', 'Open Affinity Patcher'),
-         StringStruct('FileVersion', '1.0.0'),
+         StringStruct('FileVersion', '1.0.1'),
          StringStruct('InternalName', 'open_affinity_patcher'),
          StringStruct('LegalCopyright', '© 2026'),
          StringStruct('OriginalFilename', 'Open_Affinity_Patcher_Windows.exe'),
          StringStruct('ProductName', 'Open Affinity Patcher'),
-         StringStruct('ProductVersion', '1.0.0')])
+         StringStruct('ProductVersion', '1.0.1')])
       ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]
