@@ -72,7 +72,7 @@ def clear_screen():
 
 def print_banner():
     print()
-    print(color("  ============================================================", COLOR_CYAN, COLOR_BOLD))
+    print(color("  ==================================================================", COLOR_CYAN, COLOR_BOLD))
     print(
         color("  ", COLOR_CYAN, COLOR_BOLD)
         + color("Affinity DLL Patcher", COLOR_BOLD)
@@ -88,7 +88,7 @@ def print_banner():
         color("  YouTube Channel:  ", COLOR_YELLOW)
         + color(YOUTUBE_URL, COLOR_GREEN)
     )
-    print(color("  ============================================================", COLOR_CYAN, COLOR_BOLD))
+    print(color("  ==================================================================", COLOR_CYAN, COLOR_BOLD))
     print()
 
 
