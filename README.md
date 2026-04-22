@@ -36,10 +36,12 @@
 - Работает в интерактивном режиме меню и в режиме прямого запуска через CLI
 - Использует путь по умолчанию `C:\Program Files\Affinity\Affinity\libaffinity.dll`
 - Позволяет выбрать свой путь к DLL или папку, содержащую `libaffinity.dll`
+- Устанавливает русификатор из папки `ru` в `C:\Program Files\Affinity\Affinity\ru`
 - Создает резервную копию `.bak` перед изменением файла
 - Определяет, был ли файл уже запатчен
 - Отказывается применять патч, если байты по целевому смещению отличаются от ожидаемых
 - Показывает текущий статус патча в главном меню
+- Предупреждает, что текущий русификатор является частичным переводом
 
 ## 📋 Проверка поддерживаемой версии
 
@@ -75,7 +77,8 @@
 
 - `1` Патч `libaffinity.dll` по умолчанию
 - `2` Патч своего файла или папки
-- `3` Открыть репозиторий GitHub
+- `3` Установить русификатор `ru` в папку Affinity
+- `4` Открыть репозиторий GitHub
 - `0` Выход
 
 ## 🚀 Использование
@@ -124,12 +127,13 @@ python main.py "C:\Path\To\Affinity"
 - Этот проект рассчитан на Windows
 - Скрипт использует только стандартную библиотеку Python
 - Используйте на свой риск при патчинге версий, отличающихся от `3.2.0.4351`
+- Русификатор в комплекте является частичным переводом, полного перевода на данный момент нет
 
 ## 🛠️ Сборка
 Требуется `pyinstaller`:
 ```bash
 pip install -r requirements.txt
-Windows: pyinstaller --onefile --uac-admin --icon=icon.ico --name="Open_Affinity_Patcher_Windows" --noupx --clean --version-file=version.txt main.py
+Windows: pyinstaller --onefile --uac-admin --icon=icon.ico --name="Open_Affinity_Patcher_Windows" --noupx --clean --version-file=version.txt --add-data "ru;ru" main.py
 ```
 
 # 📜 Лицензия

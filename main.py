@@ -10,9 +10,10 @@ import shutil
 import sys
 import webbrowser
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 DEFAULT_DIR = r"C:\Program Files\Affinity\Affinity"
 DEFAULT_DLL_NAME = "libaffinity.dll"
+RUSSIAN_LOCALE_DIR_NAME = "ru"
 PATCH_OFFSET = 0x0043E451
 ORIGINAL_BYTES = b"\x32\xC0"
 PATCHED_BYTES = b"\xB0\x01"
@@ -78,7 +79,7 @@ def print_banner():
         + color(" v", COLOR_CYAN)
         + color(VERSION, COLOR_GREEN, COLOR_BOLD)
     )
-    print(color("  Patch libaffinity.dll with one click or a custom path.", COLOR_CYAN))
+    print(color("  Patch libaffinity.dll or install the partial Russian localization.", COLOR_CYAN))
     print(
         color("  Telegram Channel: ", COLOR_YELLOW)
         + color(TELEGRAM_URL, COLOR_GREEN)
@@ -130,6 +131,37 @@ def get_default_target_path():
     return os.path.join(DEFAULT_DIR, DEFAULT_DLL_NAME)
 
 
+def get_app_base_dirs():
+    base_dirs = []
+    if getattr(sys, "frozen", False):
+        base_dirs.extend(
+            [
+                getattr(sys, "_MEIPASS", ""),
+                os.path.dirname(sys.executable),
+            ]
+        )
+    else:
+        base_dirs.append(os.path.dirname(os.path.abspath(__file__)))
+
+    unique_dirs = []
+    for base_dir in base_dirs:
+        if base_dir and base_dir not in unique_dirs:
+            unique_dirs.append(base_dir)
+    return unique_dirs
+
+
+def get_russian_locale_source_dir():
+    for base_dir in get_app_base_dirs():
+        candidate = os.path.join(base_dir, RUSSIAN_LOCALE_DIR_NAME)
+        if os.path.isdir(candidate):
+            return candidate
+    return os.path.join(get_app_base_dirs()[0], RUSSIAN_LOCALE_DIR_NAME)
+
+
+def get_russian_locale_target_dir():
+    return os.path.join(DEFAULT_DIR, RUSSIAN_LOCALE_DIR_NAME)
+
+
 def clean_path(raw_path):
     return raw_path.strip().strip('"').strip("'")
 
@@ -157,6 +189,33 @@ def default_location_available():
 
 def default_target_exists():
     return os.path.isfile(get_default_target_path())
+
+
+def directory_contains_files(dirpath):
+    if not os.path.isdir(dirpath):
+        return False
+
+    for _, _, filenames in os.walk(dirpath):
+        if filenames:
+            return True
+    return False
+
+
+def get_russian_locale_status():
+    source_dir = get_russian_locale_source_dir()
+    target_dir = get_russian_locale_target_dir()
+
+    if not default_location_available():
+        return "default_dir_missing"
+    if not os.path.isdir(source_dir):
+        return "source_missing"
+    if not directory_contains_files(source_dir):
+        return "source_empty"
+    if os.path.isfile(target_dir):
+        return "target_blocked"
+    if directory_contains_files(target_dir):
+        return "already_installed"
+    return "ready"
 
 
 def parse_version_parts(version_text):
@@ -430,6 +489,50 @@ def patch_dll(filepath):
     return True
 
 
+def install_russian_locale():
+    source_dir = get_russian_locale_source_dir()
+    target_dir = get_russian_locale_target_dir()
+
+    print(f"  [*] Source: {color(source_dir, COLOR_CYAN)}")
+    print(f"  [*] Target: {color(target_dir, COLOR_CYAN)}")
+    print()
+    print(
+        color(
+            "  [!] Warning: This is not a full translation. A complete Russian translation does not exist yet.",
+            COLOR_YELLOW,
+        )
+    )
+    print()
+
+    locale_status = get_russian_locale_status()
+    if locale_status == "default_dir_missing":
+        print(color(f"  [!] Affinity folder not found: {DEFAULT_DIR}", COLOR_RED))
+        return False
+    if locale_status == "source_missing":
+        print(color(f"  [!] Russian localization folder not found: {source_dir}", COLOR_RED))
+        return False
+    if locale_status == "source_empty":
+        print(color("  [!] Russian localization files were not found in the bundled ru folder.", COLOR_RED))
+        return False
+    if locale_status == "target_blocked":
+        print(color(f"  [!] Cannot install localization because a file already exists here: {target_dir}", COLOR_RED))
+        return False
+    if locale_status == "already_installed":
+        print(color("  [i] Russian localization is already installed. Installation cancelled.", COLOR_YELLOW))
+        return False
+
+    try:
+        shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+    except Exception as exc:
+        print(color(f"  [!] Install error: {exc}", COLOR_RED))
+        return False
+
+    print(color("  [+] Russian localization installed successfully.", COLOR_GREEN))
+    print()
+    print(color("  [i] Note: this is a partial translation, not a complete localization.", COLOR_YELLOW))
+    return True
+
+
 def prompt_for_custom_target():
     raw_path = input("  Enter a DLL path or a folder path: ").strip()
     if not raw_path:
@@ -456,7 +559,21 @@ def run_menu():
             print(color("  1. Patch default libaffinity.dll (folder not found)", COLOR_YELLOW))
 
         print(color("  2. Patch a custom file or folder", COLOR_CYAN))
-        print(color("  3. Open GitHub repository", COLOR_YELLOW))
+        russian_locale_status = get_russian_locale_status()
+        if russian_locale_status == "ready":
+            print(color("  3. Install Russian localization (partial translation)", COLOR_CYAN))
+        elif russian_locale_status == "already_installed":
+            print(color("  3. Install Russian localization (already installed)", COLOR_YELLOW))
+        elif russian_locale_status == "default_dir_missing":
+            print(color("  3. Install Russian localization (Affinity folder not found)", COLOR_YELLOW))
+        elif russian_locale_status == "target_blocked":
+            print(color("  3. Install Russian localization (target path is blocked)", COLOR_YELLOW))
+        elif russian_locale_status == "source_empty":
+            print(color("  3. Install Russian localization (bundled files are empty)", COLOR_YELLOW))
+        else:
+            print(color("  3. Install Russian localization (files not found)", COLOR_YELLOW))
+
+        print(color("  4. Open GitHub repository", COLOR_YELLOW))
         print(color("  0. Exit", COLOR_RED))
 
         choice = input(color("\n  > ", COLOR_CYAN, COLOR_BOLD)).strip()
@@ -487,6 +604,12 @@ def run_menu():
             continue
 
         if choice == "3":
+            install_russian_locale()
+            print()
+            pause()
+            continue
+
+        if choice == "4":
             webbrowser.open(GITHUB_URL)
             print(f"  [+] Opening: {color(GITHUB_URL, COLOR_CYAN)}")
             print()
