@@ -31,6 +31,24 @@
 
 <img alt="chrome_XYRV97RfpA" src="https://github.com/user-attachments/assets/f6e8c5bb-e1a9-46a0-bd62-498f61f3f1aa" />
 
+# 🎦 Видео гайд по установке
+
+<img alt="13431" src="https://github.com/user-attachments/assets/5d58ad7a-6934-4fb0-9b28-1f8938979152" />
+
+<div align="center">
+
+[**Смотреть на YouTube**](https://youtu.be/vNQiy4gkFas)
+
+[**Смотреть на Rutube**](https://rutube.ru/video/7fe44f32c798342424d11e8495f1740c/)
+
+[**Смотреть на Dzen**](https://dzen.ru/video/watch/69e8df013e3a94570b85bf8a)
+
+[**Смотреть в VK Video**](https://vkvideo.ru/video-234234162_456239076)
+
+[**Смотреть в Telegram**](https://t.me/avencoreschat/511116)
+
+</div>
+
 ## ✨ Что делает патчер
 
 - Работает в интерактивном режиме меню и в режиме прямого запуска через CLI
