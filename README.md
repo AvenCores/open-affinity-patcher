@@ -33,7 +33,7 @@
 
 # 🎦 Видео гайд по установке
 
-<img alt="13431" src="https://github.com/user-attachments/assets/5d58ad7a-6934-4fb0-9b28-1f8938979152" />
+![maxresdefault](https://github.com/user-attachments/assets/5d58ad7a-6934-4fb0-9b28-1f8938979152)
 
 <div align="center">
 
