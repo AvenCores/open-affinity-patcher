@@ -238,8 +238,14 @@ def run_menu():
             continue
 
         if choice == "4":
-            webbrowser.open(GITHUB_URL)
-            print(f"  [+] Opening: {color(GITHUB_URL, COLOR_CYAN)}")
+            confirm = input(
+                color("  Are you sure you want to open the GitHub repository? (y/n): ", COLOR_YELLOW)
+            ).strip().lower()
+            if confirm in ("y", "yes"):
+                webbrowser.open(GITHUB_URL)
+                print(f"  [+] Opening: {color(GITHUB_URL, COLOR_CYAN)}")
+            else:
+                print(color("  [i] Cancelled.", COLOR_YELLOW))
             print()
             pause()
             continue
