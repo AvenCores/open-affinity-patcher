@@ -4,6 +4,7 @@ Console ANSI styling, color definition, and setup utilities.
 
 import ctypes
 import os
+import re
 
 CSI = "\x1b["
 COLOR_RESET = CSI + "0m"
@@ -12,7 +13,27 @@ COLOR_GREEN = CSI + "32m"
 COLOR_YELLOW = CSI + "33m"
 COLOR_RED = CSI + "31m"
 COLOR_BOLD = CSI + "1m"
+COLOR_DIM = CSI + "2m"
+COLOR_GRAY = CSI + "90m"
+COLOR_WHITE = CSI + "97m"
 USE_COLOR = False
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _visible_len(text):
+    """
+    Length of a string excluding ANSI escape codes — needed for column width math.
+    """
+    return len(_ANSI_RE.sub("", text))
+
+
+def _center_line(text, width):
+    """
+    Pad a string with trailing spaces so its visible width equals width.
+    """
+    pad = width - _visible_len(text)
+    return text + (" " * pad if pad > 0 else "")
 
 
 def enable_ansi():
