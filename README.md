@@ -71,7 +71,7 @@
 
 `3.2.2.4557` (Enterprise, формат EXE)
 
-Скачать версию `3.2.2.4557`: [Telegram](https://t.me/avencoreschat/525984) | [Официальный сайт](https://www.affinity.studio/download)
+Скачать версию `3.2.2.4557`: [Telegram](https://t.me/avencoreschat/545770) | [Официальный сайт](https://www.affinity.studio/download)
 
 ⚠️ **Важно**: скачивайте именно **Enterprise версию в формате EXE**, не обычную версию в формате MSIX
 
