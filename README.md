@@ -152,10 +152,27 @@ python main.py "C:\Path\To\Affinity"
 - Русификатор в комплекте является частичным переводом, полного перевода на данный момент нет
 
 ## 🛠️ Сборка
-Требуется `pyinstaller`:
+
+Создайте и активируйте виртуальное окружение:
+
+```bash
+python -m venv .env
+```
+
+```powershell
+.\.env\Scripts\Activate.ps1
+```
+
+Установите `pyinstaller`:
+
 ```bash
 pip install -r requirements.txt
-Windows: pyinstaller --onefile --uac-admin --icon=icon.ico --name="Open_Affinity_Patcher_Windows" --noupx --clean --version-file=version.txt --add-data "ru;ru" main.py
+```
+
+Сборка под Windows:
+
+```bash
+pyinstaller --onefile --uac-admin --icon=icon.ico --name="Open_Affinity_Patcher_Windows" --noupx --clean --version-file=version.txt --add-data "ru;ru" main.py
 ```
 
 # 📜 Лицензия
