@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Interactive libaffinity.dll patcher.
-Changes XOR AL, AL (return 0) -> MOV AL, 1 (return 1) at file offset 0x0043E451.
+Changes XOR AL, AL (return 0) -> MOV AL, 1 (return 1) at file offset 0x00440ED1.
 """
 
 import os
