@@ -288,7 +288,11 @@ def run_menu():
         choice = input(color("\n  Select option > ", COLOR_CYAN, COLOR_BOLD)).strip()
         print()
 
-        if choice in ("0", ""):
+        if not choice:
+            # Empty input: redraw the menu instead of exiting.
+            continue
+
+        if choice == "0":
             return 0
 
         clear_screen()
